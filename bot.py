@@ -16,17 +16,17 @@ from telegram.ext import (
     filters,
 )
 
-# Windows: event loop fix
+# Fix event loop on Windows
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# Загрузка .env
+# Load .env
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
-# Настройка логов
+# Logging
 logging.basicConfig(level=logging.INFO)
 
 # Лимиты
@@ -43,7 +43,7 @@ def save_usage(usage):
     with open(USAGE_FILE, "w") as f:
         json.dump(usage, f)
 
-# Кнопки меню
+# Главное меню с кнопками
 def main_menu_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⚡ Start", callback_data="start")],
@@ -52,7 +52,7 @@ def main_menu_keyboard():
         [InlineKeyboardButton("💳 Купить 100 изображений", callback_data="buy")]
     ])
 
-# Обработка нажатий кнопок
+# 👇 Обработка кнопок
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -83,7 +83,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=main_menu_keyboard()
         )
 
-# Получение текста (если ждём описание)
+# 👇 Обработка текстового промпта
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_prompt"):
         return
@@ -126,15 +126,24 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Выбери следующее действие:", reply_markup=main_menu_keyboard())
 
-# Запуск
+# 👇 Обновлённая команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "Привет! Выбери действие ниже:",
+        reply_markup=main_menu_keyboard()
+    )
+
+# 🚀 Запуск бота
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CallbackQueryHandler(handle_buttons))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+    app.add_handler(MessageHandler(filters.COMMAND & filters.Regex("^/start$"), start))
 
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+
 
