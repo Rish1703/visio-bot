@@ -83,12 +83,8 @@ def main():
     app.add_handler(conversation)
 
     # Для Railway: webhook
-    app.run_webhook(
-        listen="0.0.0.0",
-        port=PORT,
-        url_path=TOKEN,
-        webhook_url=f"{WEBHOOK_URL}/{TOKEN}"
-    )
+    app.run_polling()
+
 
 if __name__ == "__main__":
     main()
