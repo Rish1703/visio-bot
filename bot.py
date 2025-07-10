@@ -1,13 +1,38 @@
-# bot.py
-
 import os
 import sys
 import asyncio
 import logging
 import json
 
+from dotenv import load_dotenv
+import openai
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ConversationHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters,
+)
+
+# Windows policy
+if sys.platform.startswith("win"):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+# Load env
+load_dotenv()
+TOKEN = os.getenv("TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
+
+# Состояния
+GENERATE_DESCRIPTION = 1
 USAGE_FILE = "usage.json"
 
+# Загрузка лимитов
 def load_usage():
     if os.path.exists(USAGE_FILE):
         with open(USAGE_FILE, "r") as f:
@@ -18,37 +43,30 @@ def save_usage(usage):
     with open(USAGE_FILE, "w") as f:
         json.dump(usage, f)
 
-from dotenv import load_dotenv
-import openai
-
-from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    MessageHandler,
-    ConversationHandler,
-    ContextTypes,
-    filters,
-)
-
-# Windows: policy
-if sys.platform.startswith("win"):
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-# Load environment
-load_dotenv()
-TOKEN = os.getenv("TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
-
-# States
-GENERATE_DESCRIPTION = 1
-
-logging.basicConfig(level=logging.INFO)
+# Кнопки
+def main_menu_keyboard():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("⚡ Start", callback_data="start")],
+        [InlineKeyboardButton("🖼 Generate", callback_data="generate")],
+        [InlineKeyboardButton("💳 Купить 100 изображений", callback_data="buy")]
+    ])
 
 # /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Отправь команду /generate и введи описание картинки.")
+    await update.message.reply_text("Привет! Выбери действие ниже:", reply_markup=main_menu_keyboard())
+
+# Обработка кнопок
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "start":
+        await query.edit_message_text("Привет! Я помогу тебе сгенерировать изображение.")
+    elif query.data == "generate":
+        await query.edit_message_text("Что ты хочешь сгенерировать? Напиши описание:")
+        context.user_data["awaiting_prompt"] = True
+    elif query.data == "buy":
+        await query.edit_message_text("💳 Оплата пока недоступна. Функция скоро появится.")
 
 # /generate
 async def generate(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,12 +83,12 @@ async def handle_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_usage["count"] >= user_usage["limit"]:
         await update.message.reply_text(
-            "❗ Ты использовал все 5 бесплатных генераций.\n\n"
-            "👉 Хочешь продолжить? Оплати 500₽ за 100 генераций."
+            "❗ Ты использовал все 5 бесплатных генераций.\n"
+            "💳 Хочешь продолжить? Оплати 500₽ за 100 генераций."
         )
         return -1
 
-    await update.message.reply_text("Генерирую изображение, подожди 10–15 секунд...")
+    await update.message.reply_text("🧠 Генерирую изображение, подожди 10–15 секунд...")
 
     try:
         response = openai.images.generate(
@@ -89,7 +107,7 @@ async def handle_prompt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         logging.error(f"Ошибка генерации: {e}")
-        await update.message.reply_text("Ошибка при генерации изображения. Попробуй позже.")
+        await update.message.reply_text("Ошибка при генерации. Попробуй позже.")
 
     return -1
 
@@ -100,9 +118,9 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # /reset <user_id>
 async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    admin_id = 7819868423  # Замени на свой ID
+    admin_id = 7819868423  # Замени на свой Telegram ID
     if update.effective_user.id != admin_id:
-        await update.message.reply_text("⛔ У тебя нет прав на сброс.")
+        await update.message.reply_text("⛔ У тебя нет прав.")
         return
 
     if not context.args:
@@ -115,12 +133,13 @@ async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if target_id in usage:
         usage[target_id]["count"] = 0
         save_usage(usage)
-        await update.message.reply_text(f"✅ Лимит для пользователя {target_id} обнулён.")
+        await update.message.reply_text(f"✅ Сброшен лимит для {target_id}")
     else:
-        await update.message.reply_text("Пользователь не найден в базе.")
+        await update.message.reply_text("Пользователь не найден.")
 
-# Основной запуск
+# Запуск
 def main():
+    logging.basicConfig(level=logging.INFO)
     app = ApplicationBuilder().token(TOKEN).build()
 
     conversation = ConversationHandler(
@@ -130,11 +149,13 @@ def main():
     )
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(button_callback))
+    app.add_handler(CommandHandler("reset", reset))
     app.add_handler(conversation)
-    app.add_handler(CommandHandler("reset", reset))  # добавлен reset
 
     app.run_polling()
 
 if __name__ == "__main__":
     main()
+
 
