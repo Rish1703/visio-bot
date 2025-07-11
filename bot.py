@@ -7,12 +7,18 @@ import json
 from dotenv import load_dotenv
 import openai
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    LabeledPrice,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     MessageHandler,
     ContextTypes,
+    PreCheckoutQueryHandler,
     filters,
 )
 
@@ -25,6 +31,7 @@ load_dotenv()
 TOKEN = os.getenv("TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
+PROVIDER_TOKEN = "381764678:TEST:130746"  # 💳 Токен ЮKassa
 
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -78,9 +85,16 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif query.data == "buy":
-        await query.edit_message_text(
-            text="💳 Оплата пока недоступна. Функция скоро появится.",
-            reply_markup=main_menu_keyboard()
+        prices = [LabeledPrice("100 генераций", 50000)]  # 500₽ в копейках
+        await context.bot.send_invoice(
+            chat_id=query.message.chat_id,
+            title="Покупка 100 изображений",
+            description="Ты получишь 100 генераций изображений",
+            payload="buy_100",
+            provider_token=PROVIDER_TOKEN,
+            currency="RUB",
+            prices=prices,
+            start_parameter="buy",
         )
 
 # 👇 Обработка текстового промпта
@@ -126,18 +140,36 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Выбери следующее действие:", reply_markup=main_menu_keyboard())
 
-# 👇 Обновлённая команда /start
+# 👇 /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "Привет! Выбери действие ниже:",
         reply_markup=main_menu_keyboard()
     )
 
-# 🚀 Запуск бота
+# 👇 Ответ на запрос от Telegram перед оплатой
+async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.pre_checkout_query.answer(ok=True)
+
+# 👇 Увеличиваем лимит после оплаты
+async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    usage = load_usage()
+    user_usage = usage.get(user_id, {"count": 0, "limit": FREE_LIMIT})
+    user_usage["limit"] += 100
+    usage[user_id] = user_usage
+    save_usage(usage)
+
+    await update.message.reply_text("✅ Оплата прошла успешно! Лимит увеличен на 100 изображений.")
+    await update.message.reply_text("Выбери действие:", reply_markup=main_menu_keyboard())
+
+# 🚀 Запуск
 def main():
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CallbackQueryHandler(handle_buttons))
+    app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.COMMAND & filters.Regex("^/start$"), start))
 
