@@ -90,15 +90,35 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "buy":
         prices = [LabeledPrice("100 генераций", 50000)]
         await context.bot.send_invoice(
-            chat_id=query.message.chat_id,
-            title="Покупка 100 изображений",
-            description="Ты получишь 100 генераций изображений",
-            payload="buy_100",
-            provider_token=PROVIDER_TOKEN,
-            currency="RUB",
-            prices=prices,
-            start_parameter="buy"
-        )
+    chat_id=query.message.chat_id,
+    title="Покупка 100 изображений",
+    description="Ты получишь 100 генераций изображений",
+    payload="buy_100",
+    provider_token=PROVIDER_TOKEN,
+    currency="RUB",
+    prices=prices,
+    start_parameter="buy",
+    need_email=True,
+    send_email_to_provider=True,
+    provider_data={
+        "receipt": {
+            "items": [
+                {
+                    "description": "100 генераций изображений",
+                    "quantity": 1,
+                    "amount": {
+                        "value": 500,   # Внимание! Значение в рублях, не копейках
+                        "currency": "RUB"
+                    },
+                    "vat_code": 1,
+                    "payment_mode": "full_payment",
+                    "payment_subject": "commodity"
+                }
+            ],
+            "tax_system_code": 1
+        }
+    }
+)
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_prompt"):
