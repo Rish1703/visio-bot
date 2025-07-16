@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 import logging
+import json
 from dotenv import load_dotenv
 import openai
 from supabase import create_client, Client
@@ -13,19 +14,20 @@ from telegram import (
     LabeledPrice,
 )
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CallbackQueryHandler,
     MessageHandler,
     ContextTypes,
     PreCheckoutQueryHandler,
     filters,
 )
+from fastapi import FastAPI, Request
 
-# Fix event loop on Windows
+# --------------------- Windows Event Loop Fix ---------------------
 if sys.platform.startswith("win"):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# Load .env
+# --------------------- Load ENV ---------------------
 load_dotenv()
 TOKEN = os.getenv("TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -35,10 +37,11 @@ PROVIDER_TOKEN = os.getenv("PROVIDER_TOKEN")
 
 openai.api_key = OPENAI_API_KEY
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-logging.basicConfig(level=logging.INFO)
 FREE_LIMIT = 5
 
+logging.basicConfig(level=logging.INFO)
+
+# --------------------- SUPABASE ---------------------
 async def get_user_usage(user_id):
     data = supabase.table("usage").select("*").eq("user_id", user_id).execute().data
     if data:
@@ -59,6 +62,7 @@ async def update_user_usage(user_id, count=None, limit=None):
         updates["limit"] = limit
     supabase.table("usage").update(updates).eq("user_id", user_id).execute()
 
+# --------------------- UI ---------------------
 def main_menu_keyboard():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⚡ Start", callback_data="start")],
@@ -67,6 +71,7 @@ def main_menu_keyboard():
         [InlineKeyboardButton("💳 Купить 100 изображений", callback_data="buy")]
     ])
 
+# --------------------- Handlers ---------------------
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -89,36 +94,38 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     elif query.data == "buy":
         prices = [LabeledPrice("100 генераций", 50000)]
-        await context.bot.send_invoice(
-    chat_id=query.message.chat_id,
-    title="Покупка 100 изображений",
-    description="Ты получишь 100 генераций изображений",
-    payload="buy_100",
-    provider_token=PROVIDER_TOKEN,
-    currency="RUB",
-    prices=prices,
-    start_parameter="buy",
-    need_email=True,
-    send_email_to_provider=True,
-    provider_data={
-        "receipt": {
-            "items": [
-                {
-                    "description": "100 генераций изображений",
-                    "quantity": 1,
-                    "amount": {
-                        "value": 500,   # Внимание! Значение в рублях, не копейках
-                        "currency": "RUB"
-                    },
-                    "vat_code": 1,
-                    "payment_mode": "full_payment",
-                    "payment_subject": "commodity"
-                }
-            ],
-            "tax_system_code": 1
+        provider_data = {
+            "receipt": {
+                "items": [
+                    {
+                        "description": "100 генераций изображений",
+                        "quantity": 1,
+                        "amount": {
+                            "value": 500,
+                            "currency": "RUB"
+                        },
+                        "vat_code": 1,
+                        "payment_mode": "full_payment",
+                        "payment_subject": "commodity"
+                    }
+                ],
+                "tax_system_code": 1
+            }
         }
-    }
-)
+
+        await context.bot.send_invoice(
+            chat_id=query.message.chat_id,
+            title="Покупка 100 изображений",
+            description="Ты получишь 100 генераций изображений",
+            payload="buy_100",
+            provider_token=PROVIDER_TOKEN,
+            currency="RUB",
+            prices=prices,
+            start_parameter="buy",
+            need_email=True,
+            send_email_to_provider=True,
+            provider_data=json.dumps(provider_data)
+        )
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not context.user_data.get("awaiting_prompt"):
@@ -152,9 +159,6 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Ошибка. Попробуй позже.")
     await update.message.reply_text("Выбери следующее действие:", reply_markup=main_menu_keyboard())
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привет! Выбери действие ниже:", reply_markup=main_menu_keyboard())
-
 async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.pre_checkout_query.answer(ok=True)
 
@@ -165,16 +169,26 @@ async def successful_payment_callback(update: Update, context: ContextTypes.DEFA
     await update.message.reply_text("✅ Оплата прошла успешно! Лимит увеличен на 100 изображений.")
     await update.message.reply_text("Выбери действие:", reply_markup=main_menu_keyboard())
 
-def main():
-    app = ApplicationBuilder().token(TOKEN).build()
-    app.add_handler(CallbackQueryHandler(handle_buttons))
-    app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
-    app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-    app.add_handler(MessageHandler(filters.COMMAND & filters.Regex("^/start$"), start))
-    app.run_polling()
+# --------------------- FastAPI ---------------------
+app = FastAPI()
+bot_app = Application.builder().token(TOKEN).build()
 
-if __name__ == "__main__":
-    main()
+bot_app.add_handler(CallbackQueryHandler(handle_buttons))
+bot_app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+bot_app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
+bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+bot_app.add_handler(MessageHandler(filters.COMMAND & filters.Regex("^/start$"), handle_buttons))
+
+@app.on_event("startup")
+async def startup():
+    await bot_app.initialize()
+    await bot_app.start()
+
+@app.post("/webhook")
+async def telegram_webhook(request: Request):
+    data = await request.json()
+    update = Update.de_json(data, bot_app.bot)
+    await bot_app.process_update(update)
+    return {"ok": True}
 
 
