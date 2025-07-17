@@ -6,6 +6,15 @@ from .menu import main_menu_keyboard
 import json
 
 async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Если пользователь отправил /start
+    if update.message:
+        await update.message.reply_text(
+            text="Привет! Я — бот Visio, помогу тебе сгенерировать изображения по описанию.",
+            reply_markup=main_menu_keyboard()
+        )
+        return
+
+    # Если пользователь нажал на кнопку
     query = update.callback_query
     if not query:
         return
