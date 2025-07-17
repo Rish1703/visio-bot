@@ -67,7 +67,6 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif query.data == "animate":
-        await query.edit_message_text(
-            "Отправь мне фото, и я его оживлю! 💫"
-        )
-        context.user_data["awaiting_photo"] = True  # Устанавливаем флаг ожидания фото
+    await query.edit_message_text("Пришли фото, которое хочешь оживить:")
+    context.user_data["awaiting_animation"] = True
+
