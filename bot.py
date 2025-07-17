@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from telegram import Update
 from telegram.ext import Application, MessageHandler, CallbackQueryHandler, PreCheckoutQueryHandler, filters
 from contextlib import asynccontextmanager
-from core.config import TOKEN
+from core.config import TOKEN, OPENAI_API_KEY, SUPABASE_URL, SUPABASE_KEY, PROVIDER_TOKEN, FREE_LIMIT
 from handlers.buttons import handle_buttons
 from handlers.text import handle_text
 from handlers.payment import precheckout_callback, successful_payment_callback
