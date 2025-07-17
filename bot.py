@@ -191,4 +191,8 @@ async def telegram_webhook(request: Request):
     await bot_app.process_update(update)
     return {"ok": True}
 
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("bot:app", host="0.0.0.0", port=8000)
+
 
