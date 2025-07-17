@@ -31,6 +31,7 @@ app = FastAPI(lifespan=lifespan)
 @app.post("/webhook")
 async def telegram_webhook(request: Request):
     data = await request.json()
+    print("📩 Получен update от Telegram:", data)
     update = Update.de_json(data, bot_app.bot)
     await bot_app.process_update(update)
     return {"ok": True}
