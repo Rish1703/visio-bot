@@ -1,6 +1,6 @@
 import requests
 import json
-import os
+import time
 from core.config import DID_API_KEY
 
 DID_BASE_URL = "https://api.d-id.com"
@@ -16,28 +16,46 @@ def create_talk_request(photo_url: str, text: str):
         "script": {
             "type": "text",
             "input": text,
-            "provider": {"type": "google", "voice_id": "ru-RU-Wavenet-C"},
+            "provider": {
+                "type": "google",
+                "voice_id": "ru-RU-Wavenet-C"
+            }
         },
         "source_url": photo_url
     }
 
 def animate_photo(photo_url: str, text: str) -> str:
-    response = requests.post(
-        f"{DID_BASE_URL}/talks",
-        headers=create_headers(),
-        data=json.dumps(create_talk_request(photo_url, text))
-    )
-    response.raise_for_status()
-    id_ = response.json().get("id")
+    try:
+        # 1. Отправка запроса на создание анимации
+        talk_response = requests.post(
+            f"{DID_BASE_URL}/talks",
+            headers=create_headers(),
+            json=create_talk_request(photo_url, text)
+        )
+        talk_response.raise_for_status()
+        talk_id = talk_response.json().get("id")
 
-    # Ожидаем генерацию видео
-    for _ in range(30):
-        result = requests.get(f"{DID_BASE_URL}/talks/{id_}", headers=create_headers())
-        result.raise_for_status()
-        data = result.json()
-        if "result_url" in data:
-            return data["result_url"]
-        import time; time.sleep(2)
+        if not talk_id:
+            raise Exception("❌ Не удалось получить ID анимации от D-ID")
 
-    raise Exception("⏳ Время ожидания превысило лимит.")
+        # 2. Ожидание генерации результата
+        for _ in range(30):
+            status_response = requests.get(
+                f"{DID_BASE_URL}/talks/{talk_id}",
+                headers=create_headers()
+            )
+            status_response.raise_for_status()
+            data = status_response.json()
 
+            result_url = data.get("result_url")
+            if result_url:
+                return result_url
+
+            time.sleep(2)
+
+        raise Exception("⏳ Видео не было сгенерировано в течение времени ожидания.")
+    
+    except requests.RequestException as e:
+        raise Exception(f"❌ Ошибка при запросе к D-ID API: {e}")
+    except Exception as e:
+        raise Exception(f"❌ Ошибка: {e}")
