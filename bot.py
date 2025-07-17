@@ -18,7 +18,7 @@ from handlers.buttons import handle_buttons
 from handlers.text import handle_text
 from handlers.payment import precheckout_callback, successful_payment_callback
 from handlers.commands import help_command, reset_command
-from handlers.animate import handle_photo  # ✅ добавлен импорт
+from handlers.animate import handle_photo  # ✅ обработчик анимации фото
 
 # -------------------- Настройка логирования --------------------
 logging.basicConfig(level=logging.INFO)
@@ -38,9 +38,10 @@ bot_app.add_handler(CommandHandler("reset", reset_command))
 
 bot_app.add_handler(CallbackQueryHandler(handle_buttons))
 bot_app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
+
 bot_app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
 bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-bot_app.add_handler(MessageHandler(filters.PHOTO, handle_photo))  # ✅ обработчик анимации фото
+bot_app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_photo))  # ✅ фильтр по фото
 
 # -------------------- FastAPI Lifespan --------------------
 @asynccontextmanager
@@ -66,5 +67,6 @@ async def telegram_webhook(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("bot:app", host="0.0.0.0", port=8000)
+
 
 

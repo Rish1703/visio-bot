@@ -3,9 +3,15 @@ from telegram.ext import ContextTypes
 from services.did_service import animate_photo
 
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Проверяем, ждёт ли пользователь фото
+    if not context.user_data.get("awaiting_photo"):
+        return
+
+    context.user_data["awaiting_photo"] = False  # Сбрасываем флаг
+
     photo = update.message.photo[-1]  # самое большое фото
     text = update.message.caption or "Привет!"
-    
+
     await update.message.reply_text("🌀 Создаю анимацию...")
 
     try:

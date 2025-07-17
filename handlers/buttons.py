@@ -25,15 +25,18 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if query.data == "start":
         await query.edit_message_text("Привет! Я — бот Visio...", reply_markup=main_menu_keyboard())
+
     elif query.data == "generate":
         await query.edit_message_text("Что ты хочешь сгенерировать? Напиши описание:")
         context.user_data["awaiting_prompt"] = True
+
     elif query.data == "stats":
         remaining = max(0, user_usage["limit"] - user_usage["count"])
         await query.edit_message_text(
             text=f"📊 Твои генерации:\n✅ Осталось: {remaining} из {user_usage['limit']}",
             reply_markup=main_menu_keyboard()
         )
+
     elif query.data == "buy":
         prices = [LabeledPrice("100 генераций", 50000)]
         provider_data = {
@@ -62,3 +65,9 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
             send_email_to_provider=True,
             provider_data=json.dumps(provider_data)
         )
+
+    elif query.data == "animate":
+        await query.edit_message_text(
+            "Отправь мне фото, и я его оживлю! 💫"
+        )
+        context.user_data["awaiting_photo"] = True  # Устанавливаем флаг ожидания фото
