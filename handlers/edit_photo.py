@@ -1,6 +1,6 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from services.dalle_service import edit_photo
+from services.edit_service import edit_photo
 import logging
 import tempfile
 import os
