@@ -28,7 +28,7 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("Привет! Я — бот Visio...", reply_markup=main_menu_keyboard())
 
     elif query.data == "generate":
-        await query.edit_message_text("Что ты хочешь сгенерировать? Напиши описание:")
+        await query.edit_message_text("✨ Напиши, что ты хочешь сгенерировать — и я превращу текст в изображение!")
         context.user_data["awaiting_prompt"] = True
 
     elif query.data == "stats":
@@ -68,5 +68,14 @@ async def handle_buttons(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif query.data == "animate":
-        await query.edit_message_text("Пришли фото, которое хочешь оживить:")
+        await query.edit_message_text(
+            "🧬 Пришли фото, которое хочешь оживить. Добавь подпись с текстом — я сделаю видео с анимацией и озвучкой!"
+        )
         context.user_data["awaiting_animation"] = True
+
+    elif query.data == "edit_photo":
+        await query.edit_message_text(
+            "🎨 Пришли фото, которое хочешь отредактировать.\n\nНапример:\n— Добавь очки\n— Удали задний фон\n— Сделай рождественский стиль\n— Добавь радугу на фоне\n\n📸 Просто отправь картинку с описанием — и я сделаю магию!"
+        )
+        context.user_data["awaiting_inpainting_photo"] = True
+

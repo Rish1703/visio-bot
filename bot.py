@@ -18,7 +18,8 @@ from handlers.buttons import handle_buttons
 from handlers.text import handle_text
 from handlers.payment import precheckout_callback, successful_payment_callback
 from handlers.commands import help_command, reset_command
-from handlers.animate import handle_photo  # ✅ обработчик анимации фото
+from handlers.animate import handle_photo       # ✅ обработчик анимации
+from handlers.edit_photo import handle_edit_photo  # ✅ обработчик редактирования
 
 # -------------------- Настройка логирования --------------------
 logging.basicConfig(level=logging.INFO)
@@ -41,7 +42,10 @@ bot_app.add_handler(PreCheckoutQueryHandler(precheckout_callback))
 
 bot_app.add_handler(MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback))
 bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
-bot_app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_photo))  # ✅ фильтр по фото
+
+# 📷 Обработка изображений: сначала анимация, затем редактирование
+bot_app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_photo))
+bot_app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_edit_photo))
 
 # -------------------- FastAPI Lifespan --------------------
 @asynccontextmanager
