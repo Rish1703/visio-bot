@@ -7,7 +7,7 @@ DID_BASE_URL = "https://api.d-id.com"
 
 def create_headers():
     return {
-        "Authorization": f"Bearer bWFyaXlhLmlueWFrb3ZhQGdtYWlsLmNvbQ:4xlTLfJVGCyVF3ryLGblz"",
+        "Authorization": f"Bearer bWFyaXlhLmlueWFrb3ZhQGdtYWlsLmNvbQ:4xlTLfJVGCyVF3ryLGblz",
         "Content-Type": "application/json"
     }
 
