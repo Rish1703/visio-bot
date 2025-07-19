@@ -15,8 +15,8 @@ def edit_image_with_dalle(image_path: str, prompt: str) -> str:
 
     with open(image_path, "rb") as image_file:
         files = {
-            "image": (image_path, image_file, "image/png"),
-            "mask": (None, None),  # Без маски — редактируется всё изображение
+            "image": ("image.png", image_file, "image/png"),
+            "mask": (None, None)  # Без маски — редактируется всё изображение
         }
         data = {
             "prompt": prompt,
@@ -26,14 +26,16 @@ def edit_image_with_dalle(image_path: str, prompt: str) -> str:
         }
 
         response = requests.post(OPENAI_URL, headers=headers, files=files, data=data)
-        response.raise_for_status()
 
-        return response.json()["data"][0]["url"]
+        try:
+            response.raise_for_status()
+            return response.json()["data"][0]["url"]
+        except Exception as e:
+            raise RuntimeError(f"Ошибка DALL·E 2: {response.text}") from e
 
 
 def edit_photo(image_path: str, prompt: str) -> str:
     """
-    Универсальная функция, которую вызывают другие части проекта.
+    Универсальная функция, вызываемая извне (из хендлера Telegram).
     """
     return edit_image_with_dalle(image_path, prompt)
-
