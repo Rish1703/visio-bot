@@ -8,40 +8,37 @@ import os
 logger = logging.getLogger(__name__)
 
 async def handle_edit_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not context.user_data.get("awaiting_edit"):
+    # Если пришло фото — сохраняем, ждём описание
+    if update.message.photo:
+        context.user_data["last_photo"] = update.message.photo[-1]
+        context.user_data["awaiting_edit"] = True
+        await update.message.reply_text("🖼 Фото получено! Теперь отправь описание, что нужно изменить.")
         return
 
-    context.user_data["awaiting_edit"] = False
+    # Если пришёл текст после фото — обрабатываем
+    if context.user_data.get("awaiting_edit") and "last_photo" in context.user_data:
+        context.user_data["awaiting_edit"] = False
+        photo = context.user_data.pop("last_photo")
+        prompt = update.message.text
 
-    photo = update.message.photo[-1]
-    caption = update.message.caption
+        await update.message.reply_text("🎨 Редактирую фото по описанию...")
 
-    if not caption:
-        await update.message.reply_text("❗ Пожалуйста, добавь описание к фото (что нужно изменить).")
-        return
+        try:
+            file = await context.bot.get_file(photo.file_id)
+            photo_bytes = await file.download_as_bytearray()
 
-    await update.message.reply_text("🎨 Фото и описание получены.\n⏳ Начинаю редактирование, подожди пару секунд...")
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_image:
+                temp_image.write(photo_bytes)
+                temp_image_path = temp_image.name
 
-    try:
-        file = await context.bot.get_file(photo.file_id)
-        photo_bytes = await file.download_as_bytearray()
+            edited_image_url = edit_photo(temp_image_path, prompt)
 
-        # Временный PNG-файл
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_image:
-            temp_image.write(photo_bytes)
-            temp_image_path = temp_image.name
+            await update.message.reply_photo(photo=edited_image_url, caption="Готово!")
+            os.remove(temp_image_path)
 
-        logger.info(f"📸 Фото сохранено во временный файл: {temp_image_path}")
-        logger.info(f"📄 Описание: {caption}")
-
-        edited_image_url = edit_photo(temp_image_path, caption)
-
-        logger.info(f"✅ Получен URL от DALL·E: {edited_image_url}")
-
-        await update.message.reply_photo(photo=edited_image_url, caption="✨ Готово! Вот твоё отредактированное фото.")
-
-        os.remove(temp_image_path)
-
-    except Exception as e:
-        logger.error(f"❌ Ошибка при редактировании: {e}")
-        await update.message.reply_text(f"❌ Ошибка при редактировании: {e}")
+        except Exception as e:
+            logger.error(f"Ошибка редактирования: {e}")
+            await update.message.reply_text(f"❌ Ошибка при редактировании фото: {e}")
+    else:
+        # Если пользователь ничего не отправлял ранее
+        await update.message.reply_text("📸 Сначала отправь фото, затем текст с описанием.")
