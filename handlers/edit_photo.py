@@ -20,7 +20,7 @@ async def handle_edit_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❗ Пожалуйста, добавь описание к фото (что нужно изменить).")
         return
 
-    await update.message.reply_text("🎨 Редактирую фото по описанию...")
+    await update.message.reply_text("🎨 Фото и описание получены.\n⏳ Начинаю редактирование, подожди пару секунд...")
 
     try:
         file = await context.bot.get_file(photo.file_id)
@@ -31,12 +31,17 @@ async def handle_edit_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             temp_image.write(photo_bytes)
             temp_image_path = temp_image.name
 
+        logger.info(f"📸 Фото сохранено во временный файл: {temp_image_path}")
+        logger.info(f"📄 Описание: {caption}")
+
         edited_image_url = edit_photo(temp_image_path, caption)
 
-        await update.message.reply_photo(photo=edited_image_url, caption="Готово!")
+        logger.info(f"✅ Получен URL от DALL·E: {edited_image_url}")
+
+        await update.message.reply_photo(photo=edited_image_url, caption="✨ Готово! Вот твоё отредактированное фото.")
+
         os.remove(temp_image_path)
 
     except Exception as e:
-        logger.error(f"Ошибка редактирования: {e}")
-        await update.message.reply_text(f"❌ Ошибка при редактировании фото: {e}")
-
+        logger.error(f"❌ Ошибка при редактировании: {e}")
+        await update.message.reply_text(f"❌ Ошибка при редактировании: {e}")
