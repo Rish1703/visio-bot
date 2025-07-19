@@ -1,6 +1,6 @@
 import requests
-from core.config import OPENAI_API_KEY
 import logging
+from core.config import OPENAI_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,13 @@ def edit_image_with_dalle(image_path: str, prompt: str) -> str:
         "Authorization": f"Bearer {OPENAI_API_KEY}"
     }
 
-    logger.debug(f"⏳ Отправляем запрос в DALL·E 2 с prompt: {prompt}")
+    logger.info(f"📤 Отправка изображения в DALL·E 2. Prompt: '{prompt}'")
     print(f"[DEBUG] Отправка в DALL·E: prompt={prompt}, image_path={image_path}")
 
     with open(image_path, "rb") as image_file:
         files = {
             "image": (image_path, image_file, "image/png"),
-            "mask": (None, None),  # без маски редактируется всё
+            "mask": (None, None),  # Без маски — редактируется всё изображение
         }
         data = {
             "prompt": prompt,
@@ -30,14 +30,32 @@ def edit_image_with_dalle(image_path: str, prompt: str) -> str:
             "response_format": "url"
         }
 
-        response = requests.post(OPENAI_URL, headers=headers, files=files, data=data)
+        try:
+            response = requests.post(OPENAI_URL, headers=headers, files=files, data=data)
+            logger.debug(f"📨 Статус ответа DALL·E: {response.status_code}")
+            print("[DEBUG] Ответ DALL·E статус:", response.status_code)
+            print("[DEBUG] Ответ DALL·E тело:", response.text)
 
-        print("[DEBUG] Ответ DALL·E статус:", response.status_code)
-        print("[DEBUG] Ответ DALL·E тело:", response.text)
+            response.raise_for_status()
 
-        response.raise_for_status()
+            json_data = response.json()
+            if "data" in json_data and len(json_data["data"]) > 0:
+                image_url = json_data["data"][0]["url"]
+                logger.info(f"✅ Получено изображение: {image_url}")
+                return image_url
+            else:
+                raise ValueError("❗ Ошибка: DALL·E не вернул изображение.")
 
-        return response.json()["data"][0]["url"]
+        except requests.RequestException as e:
+            logger.exception(f"🚨 Ошибка запроса к DALL·E: {e}")
+            raise
+
+        except Exception as e:
+            logger.exception(f"🚫 Непредвиденная ошибка: {e}")
+            raise
 
 def edit_photo(image_path: str, prompt: str) -> str:
+    """
+    Универсальная функция, вызываемая из других частей кода.
+    """
     return edit_image_with_dalle(image_path, prompt)
