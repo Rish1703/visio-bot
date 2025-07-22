@@ -4,6 +4,7 @@ from core.config import OPENAI_API_KEY
 
 logger = logging.getLogger(__name__)
 
+# Эндпоинт редактирования изображений в DALL·E 2 (inpainting)
 OPENAI_URL = "https://api.openai.com/v1/images/edits"
 
 def edit_image_with_dalle(image_path: str, prompt: str) -> str:
@@ -20,7 +21,7 @@ def edit_image_with_dalle(image_path: str, prompt: str) -> str:
 
     with open(image_path, "rb") as image_file:
         files = {
-            "image": (image_path, image_file, "image/png"),
+            "image": ("image.png", image_file, "image/png"),
             "mask": (None, None),  # Без маски — редактируется всё изображение
         }
         data = {
@@ -32,6 +33,7 @@ def edit_image_with_dalle(image_path: str, prompt: str) -> str:
 
         try:
             response = requests.post(OPENAI_URL, headers=headers, files=files, data=data)
+
             logger.debug(f"📨 Статус ответа DALL·E: {response.status_code}")
             print("[DEBUG] Ответ DALL·E статус:", response.status_code)
             print("[DEBUG] Ответ DALL·E тело:", response.text)
@@ -44,6 +46,7 @@ def edit_image_with_dalle(image_path: str, prompt: str) -> str:
                 logger.info(f"✅ Получено изображение: {image_url}")
                 return image_url
             else:
+                logger.error("❗ DALL·E не вернул изображение.")
                 raise ValueError("❗ Ошибка: DALL·E не вернул изображение.")
 
         except requests.RequestException as e:
