@@ -22,3 +22,4 @@ urllib3==2.5.0
 fastapi
 uvicorn
 python-telegram-bot
+python-dotenv>=1.0.0
